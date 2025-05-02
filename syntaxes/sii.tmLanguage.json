@@ -1,0 +1,137 @@
+{	
+	"$schema": "https://raw.githubusercontent.com/martinring/tmlanguage/master/tmlanguage.json",
+	"name": "Scs Script",
+	"patterns": [
+		{
+			"include": "#keywords"
+		},
+		{
+			"include": "#strings"
+		},
+		{
+			"include": "#comments"
+		},
+		{
+			"include": "#numeric_literals"
+		}
+	],
+	"repository": {
+		"brackets": {
+			"patterns": [
+				{
+					"begin": "{",
+					"beginCaptures": {
+						"0": {
+							"name": "punctuation.definition.begin.bracket.curly.sii"
+						}
+					},
+					"end": "}",
+					"endCaptures": {
+						"0": {
+							"name": "punctuation.definition.end.bracket.curly.sii"
+						}
+					},
+					"patterns": [
+						{
+							"include": "$self"
+						}
+					]
+				},
+				{
+					"begin": "\\(",
+					"beginCaptures": {
+						"0": {
+							"name": "punctuation.definition.begin.bracket.round.sii"
+						}
+					},
+					"end": "\\)",
+					"endCaptures": {
+						"0": {
+							"name": "punctuation.definition.end.bracket.round.sii"
+						}
+					},
+					"patterns": [
+						{
+							"include": "$self"
+						}
+					]
+				},
+				{
+					"match": "\\[|\\]",
+					"name": "punctuation.definition.bracket.square.sii"
+				}
+			]
+		},
+		"keywords": {
+			"patterns": [{
+				"comment": "Syntax error sending channels",
+				"name": "keyword.control.sii",
+				"match": "\\b(if|while|for|return|key_pos|key_color|time_to_live|particles_max_count|relative_space|model_path|model_look|color_multiplier|particle_displacement|particle_size_var|particle_size|flow_speed|particle_gen|list_order_up|blend_alpha|gen_pos|scale_acc|rotation_speed|alpha_blend_coef|base_alpha|alpha_attack_time|flow_speed|flow_speed_acc|accessory_rim_data|accessory_wheel_data|Related Units|traffic_trailer|traffic_vehicle|trailer|vehicle|vehicle_accessory|vehicle_addon_accessory|vehicle_paint_job_accessory|vehicle_sound_accessory|paintable|user_mirror_rot|fuel_relative|accessories|odometer|odometer_float_part|wear|data_path|vehicle_wheel_accessory|offset|slot_name|slot_hookup)\\b"
+			}]
+		},
+		"strings": {
+			"name": "string.quoted.double.sii",
+			"begin": "\"",
+			"end": "\"",
+			"patterns": [
+				{
+					"name": "constant.character.escape.sii",
+					"match": "\\\\."
+				}
+			]
+		},
+		"comments": {
+			"patterns": [
+				{
+					"comment": "Language constants",
+					"match": "\\b(true|false)\\b",
+					"name": "constant.language.go"
+				},
+				{
+					"name": "comment.block.sii",
+					"begin": "(\\/\\*)",
+					"beginCaptures": {
+						"1": {
+							"name": "punctuation.definition.comment.sii"
+						}
+					},
+					"end": "(\\*\\/)",
+					"endCaptures": {
+						"1": {
+							"name": "punctuation.definition.comment.sii"
+						}
+					}
+				},
+				{
+					"name": "comment.line.double-slash.sii",
+					"begin": "(\\/\\/)",
+					"beginCaptures": {
+						"1": {
+							"name": "punctuation.definition.comment.sii"
+						}
+					},
+					"end": "(?:\\n|$)"
+				}
+			]
+		},
+		"numeric_literals": {
+			"patterns": [
+				{
+					"include": "#float"
+				},
+				{
+					"include": "#integer"
+				}
+			]
+		},
+		"float": {
+			"match": "(\\.\\d+([Ee][-+]\\d+)?i?)\\b|\\b\\d+\\.\\d*(([Ee][-+]\\d+)?i?\\b)?",
+			"name": "constant.numeric.floating-point.sii"
+		},
+		"integer": {
+			"match": "\\b((0x[0-9a-fA-F]+)|(0[0-7]+i?)|(\\d+([Ee]\\d+)?i?)|(\\d+[Ee][-+]\\d+i?))\\b",
+			"name": "constant.numeric.integer.sii"
+		}
+	},
+	"scopeName": "source.sii"
+}

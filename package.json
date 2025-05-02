@@ -1,0 +1,54 @@
+{
+    "name": "scs-script",
+    "displayName": "Scs Script",
+    "description": "SCS Script Support",
+    "version": "0.0.3",
+    "publisher": "Frankity",
+    "license": "MIT",
+    "engines": {
+        "vscode": "^0.11.0"
+    },
+    "categories": [
+        "Programming Languages"
+    ],
+    "icon": "icon.png",
+    "repository": {
+		"type": "git",
+		"url": "https://github.com/Frankity/scs-script"
+	},
+	"bugs": {
+		"url": "https://github.com/Frankity/scs-script/issues"
+	},
+    "activationEvents": [
+        "onLanguage:sii"
+    ],
+    "main": "./extension.js",
+    "contributes": {
+        "languages": [
+            {
+                "id": "sii",
+                "aliases": [
+                    "Scs Script",
+                    "sii"
+                ],
+                "extensions": [
+                    ".sii",
+                    ".sui"
+                ],
+                "configuration": "./language-configuration.json"
+            }
+        ],
+        "grammars": [
+            {
+                "language": "sii",
+                "scopeName": "source.sii",
+                "path": "./syntaxes/sii.tmLanguage.json"
+            }
+        ],
+        "configurationDefaults": {
+            "[go]": {
+                "editor.insertSpaces": false
+            }
+        }
+    }
+}
