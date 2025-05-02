@@ -1,9 +1,18 @@
 # Change Log
 
-All notable changes to the "scs-script" extension will be documented in this file.
+## [0.0.3] - 2025-05-01
 
-Check [Keep a Changelog](http://keepachangelog.com/) for recommendations on how to structure this file.
+### Added
+- Added the ability to follow references associated with the following definitions:
+  - `model`
+  - `collision`
+  - `ui_shadow`
+  - `defaults[]`
+  - `@include`
 
-## [Unreleased]
+  just `Ctrl + click` over the underlined path in your mod, some strings are marked as followable, but they're not.
 
-- Initial release
+  ## [0.0.4] - 2025-05-01
+
+### Added
+- Updated Readme.
