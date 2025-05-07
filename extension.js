@@ -2,6 +2,7 @@ const vscode = require('vscode');
 const path = require('path');
 const reservedWords = require('./reservedWords'); 
 const fs = require('fs');
+const validationRules = require('./validationRules');
 
 function activate(context) {
     const linkProvider = vscode.languages.registerDocumentLinkProvider({ language: 'sii' }, {
@@ -34,9 +35,9 @@ function activate(context) {
         provideHover(document, position) {
             const wordRange = document.getWordRangeAtPosition(position);
             const word = document.getText(wordRange);
-    
+
+            // Mostrar documentación de palabra reservada
             const reservedWord = reservedWords.find(item => item.name === word);
-    
             if (reservedWord) {
                 const markdown = new vscode.MarkdownString();
                 markdown.appendMarkdown(`**${reservedWord.name}**`);
@@ -49,6 +50,49 @@ function activate(context) {
                 markdown.appendMarkdown(`[Check reference guide.](https://modding.scssoft.com/index.php?search=${reservedWord.name}&title=Special%3ASearch&go=Go)`);
                 markdown.isTrusted = true;
                 return new vscode.Hover(markdown, wordRange);
+            }
+
+            // Mostrar imagen de icono si el campo es "icon"
+            const line = document.lineAt(position.line).text;
+            const iconMatch = line.match(/icon\s*:\s*"([^"]+)"/);
+            if (iconMatch) {
+                const iconName = iconMatch[1];
+                const workspaceFolder = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath;
+                // Puedes ajustar la ruta base según tu estructura de proyecto
+                const possiblePaths = [
+                    path.join(workspaceFolder, 'material', 'ui', 'accessory', `${iconName}.dds`),
+                    path.join(workspaceFolder, 'material', 'ui', 'accessory', `${iconName}.png`)
+                ];
+                let iconUri;
+                for (const p of possiblePaths) {
+                    if (fs.existsSync(p)) {
+                        iconUri = vscode.Uri.file(p);
+                        break;
+                    }
+                }
+                if (iconUri) {
+                    const markdown = new vscode.MarkdownString();
+                    markdown.appendMarkdown(`**Icon preview:**\n\n`);
+                    markdown.appendMarkdown(`![icon](${iconUri.with({ scheme: 'vscode-resource' })})`);
+                    markdown.appendMarkdown(`\n\nRuta: \`${iconUri.fsPath}\``);
+                    markdown.isTrusted = true;
+                    return new vscode.Hover(markdown, wordRange);
+                }
+            }
+
+            // Mostrar imagen de modelo si el campo es "model"
+            const modelMatch = line.match(/model\s*:\s*"([^"]+)"/);
+            if (modelMatch) {
+                const modelPath = modelMatch[1];
+                const workspaceFolder = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath;
+                const absModelPath = path.join(workspaceFolder, modelPath.replace(/\//g, path.sep));
+                if (fs.existsSync(absModelPath)) {
+                    const markdown = new vscode.MarkdownString();
+                    markdown.appendMarkdown(`**Model path:**\n\n`);
+                    markdown.appendMarkdown(`\`${absModelPath}\``);
+                    markdown.isTrusted = true;
+                    return new vscode.Hover(markdown, wordRange);
+                }
             }
         }
     });
@@ -74,17 +118,95 @@ function activate(context) {
 
     function validateDocument(document) {
         if (document.languageId !== "sii") return;
-
+    
         const diagnosticsArray = [];
         const workspaceFolder = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath;
-
-        // Expresión regular para paths y @include
-        const regex = /@include\s+"([^"]+)"|"(\/[^"]+\/[^"]+)"/g;
-
+    
+        // Validación de propiedades tipo: valor
+        const propertyRegex = /^\s*([a-zA-Z_][a-zA-Z0-9_]*)\s*:\s*([^\n#]+)/gm;
+    
+        for (let i = 0; i < document.lineCount; i++) {
+            const line = document.lineAt(i);
+    
+            let propMatch;
+            while ((propMatch = propertyRegex.exec(line.text)) !== null) {
+                const [_, key, valueRaw] = propMatch;
+                const value = valueRaw.trim().replace(/^"|"$/g, '');
+    
+                if (validationRules[key]) {
+                    const rule = validationRules[key];
+                    let isValid = true;
+                    let message = "";
+    
+                    if (rule.type === "number" && isNaN(Number(value))) {
+                        isValid = false;
+                        message = `"${key}" must be a number.`;
+                    } else if (rule.type === "enum" && !rule.values.includes(value)) {
+                        isValid = false;
+                        message = `"${key}" must be one of: ${rule.values.join(", ")}.`;
+                    } else if (rule.type === "string" && !/^".*"$/.test(valueRaw.trim())) {
+                        isValid = false;
+                        message = `"${key}" must be a string (enclosed in quotes).`;
+                    } else if (rule.type === "tuple") {
+                        const tupleMatch = valueRaw.trim().match(/^\(([^)]+)\)$/);
+                        if (!tupleMatch) {
+                            isValid = false;
+                            message = `"${key}" must be a tuple in the format (${rule.allowedLengths ? rule.allowedLengths.join(' or ') : rule.length} numbers).`;
+                        } else {
+                            const elements = tupleMatch[1].split(',').map(e => e.trim());
+                            const validLength = rule.allowedLengths
+                                ? rule.allowedLengths.includes(elements.length)
+                                : elements.length === rule.length;
+                            if (!validLength) {
+                                message = `"${key}" must have ${rule.allowedLengths ? rule.allowedLengths.join(' or ') : rule.length} elements.`;
+                                isValid = false;
+                            } else if (rule.elementType === "number" && elements.some(e => isNaN(Number(e)))) {
+                                isValid = false;
+                                message = `All elements of "${key}" must be numbers.`;
+                            }
+                        }
+                    } else if (rule.type === "tupleOrNumber") {
+                        const tupleMatch = valueRaw.trim().match(/^\(([^)]+)\)$/);
+                        if (tupleMatch) {
+                            // Es tupla
+                            const elements = tupleMatch[1].split(',').map(e => e.trim());
+                            const validLength = rule.allowedLengths.includes(elements.length);
+                            if (!validLength) {
+                                isValid = false;
+                                message = `"${key}" must have ${rule.allowedLengths.join(' or ')} elements.`;
+                            } else if (elements.some(e => isNaN(Number(e)))) {
+                                isValid = false;
+                                message = `All elements of "${key}" must be numbers.`;
+                            }
+                        } else {
+                            // Es un solo número
+                            if (isNaN(Number(valueRaw.trim()))) {
+                                isValid = false;
+                                message = `"${key}" must be a number or a tuple of numbers.`;
+                            }
+                        }
+                    }
+    
+                    if (!isValid) {
+                        const start = line.text.indexOf(key);
+                        const end = start + key.length;
+                        const range = new vscode.Range(i, start, i, end);
+                        diagnosticsArray.push(new vscode.Diagnostic(
+                            range,
+                            message,
+                            vscode.DiagnosticSeverity.Error
+                        ));
+                    }
+                }
+            }
+        }
+    
+        // Validación de archivos referenciados en paths y @include
+        const fileRegex = /@include\s+"([^"]+)"|"(\/[^"]+\/[^"]+)"/g;
         for (let i = 0; i < document.lineCount; i++) {
             const line = document.lineAt(i);
             let match;
-            while ((match = regex.exec(line.text)) !== null) {
+            while ((match = fileRegex.exec(line.text)) !== null) {
                 // match[1] es para @include, match[2] para paths normales
                 const filePath = match[1] || match[2];
                 if (filePath && workspaceFolder) {
@@ -95,14 +217,14 @@ function activate(context) {
                         const range = new vscode.Range(i, start, i, end);
                         diagnosticsArray.push(new vscode.Diagnostic(
                             range,
-                            `Referenced file does not exist: ${filePath}`,
+                            `Referenced file does not exist: ${filePath}, or belongs to the game base.`,
                             vscode.DiagnosticSeverity.Warning
                         ));
                     }
                 }
             }
         }
-
+    
         diagnostics.set(document.uri, diagnosticsArray);
     }
 
