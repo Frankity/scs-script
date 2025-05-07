@@ -1,8 +1,8 @@
 {
     "name": "scs-script",
-    "displayName": "Scs Script",
+    "displayName": "SCS Script",
     "description": "SCS Script Support",
-    "version": "0.0.5",
+    "version": "0.0.6",
     "publisher": "Frankity",
     "license": "MIT",
     "engines": {
