@@ -1,8 +1,9 @@
 const vscode = require('vscode');
 const path = require('path');
 const reservedWords = require('./reservedWords'); 
+const fs = require('fs');
 
-    function activate(context) {
+function activate(context) {
     const linkProvider = vscode.languages.registerDocumentLinkProvider({ language: 'sii' }, {
         provideDocumentLinks(document) {
             const links = [];
@@ -73,38 +74,36 @@ const reservedWords = require('./reservedWords');
 
     function validateDocument(document) {
         if (document.languageId !== "sii") return;
-    
-        // const diagnosticsArray = [];
-        // // Expresión regular para capturar palabras antes de ":" o en líneas sin ":"
-        // const regex = /\b\w+\b/g;
-    
-        // for (let i = 0; i < document.lineCount; i++) {
-        //     const line = document.lineAt(i);
-        //     let match;
-    
-        //     // Dividir la línea en dos partes: antes y después de ":"
-        //     const parts = line.text.split(":");
-        //     const textToValidate = parts.length > 1 ? parts[0] : line.text;
-    
-        //     while ((match = regex.exec(textToValidate)) !== null) {
-        //         const word = match[0];
-    
-        //         // Verificar si la palabra está en el arreglo de palabras reservadas
-        //         const isReserved = reservedWords.some(item => item.name === word);
-    
-        //         if (!isReserved) {
-        //             const range = new vscode.Range(i, match.index, i, match.index + word.length);
-        //             const diagnostic = new vscode.Diagnostic(
-        //                 range,
-        //                 `"${word}" is not a valid reserved word.`,
-        //                 vscode.DiagnosticSeverity.Error
-        //             );
-        //             diagnosticsArray.push(diagnostic);
-        //         }
-        //     }
-        // }
-    
-        // diagnostics.set(document.uri, diagnosticsArray);
+
+        const diagnosticsArray = [];
+        const workspaceFolder = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath;
+
+        // Expresión regular para paths y @include
+        const regex = /@include\s+"([^"]+)"|"(\/[^"]+\/[^"]+)"/g;
+
+        for (let i = 0; i < document.lineCount; i++) {
+            const line = document.lineAt(i);
+            let match;
+            while ((match = regex.exec(line.text)) !== null) {
+                // match[1] es para @include, match[2] para paths normales
+                const filePath = match[1] || match[2];
+                if (filePath && workspaceFolder) {
+                    const absPath = path.join(workspaceFolder, filePath.replace(/\//g, path.sep));
+                    if (!fs.existsSync(absPath)) {
+                        const start = match.index + line.text.slice(match.index).indexOf(filePath);
+                        const end = start + filePath.length;
+                        const range = new vscode.Range(i, start, i, end);
+                        diagnosticsArray.push(new vscode.Diagnostic(
+                            range,
+                            `Referenced file does not exist: ${filePath}`,
+                            vscode.DiagnosticSeverity.Warning
+                        ));
+                    }
+                }
+            }
+        }
+
+        diagnostics.set(document.uri, diagnosticsArray);
     }
 
     context.subscriptions.push(
@@ -112,6 +111,84 @@ const reservedWords = require('./reservedWords');
         vscode.workspace.onDidChangeTextDocument(e => validateDocument(e.document)),
         vscode.workspace.onDidCloseTextDocument(doc => diagnostics.delete(doc.uri))
     );
+
+    const formatDocumentCommand = vscode.commands.registerCommand('extension.formatSiiDocument', () => {
+        const editor = vscode.window.activeTextEditor;
+        if (!editor) return;
+    
+        const document = editor.document;
+        const text = document.getText();
+    
+        // Expresión regular para capturar bloques y formatearlos
+        const formattedText = text.replace(
+            /(\w+\s*:\s*\.\w+)\s*{([\s\S]*?)}/g,
+            (match, header, body) => {
+                const formattedBody = body
+                    .split('\n')
+                    .map(line => line.trim())
+                    .filter(line => line) // Eliminar líneas vacías
+                    .map(line => `\t\t${line}`) // Agregar indentación
+                    .join('\n');
+                return `${header}\n\t{\n${formattedBody}\n\t}`;
+            }
+        );
+    
+        // Reemplazar el contenido del editor con el texto formateado
+        editor.edit(editBuilder => {
+            const fullRange = new vscode.Range(
+                document.positionAt(0),
+                document.positionAt(text.length)
+            );
+            editBuilder.replace(fullRange, formattedText);
+        });
+    });
+    
+    // Registrar el comando
+    context.subscriptions.push(formatDocumentCommand);
+
+    const formattingProvider = vscode.languages.registerDocumentFormattingEditProvider('sii', {
+        provideDocumentFormattingEdits(document) {
+            const edits = [];
+            const text = document.getText();
+
+            // Separar por líneas y procesar indentación
+            const lines = text.split('\n');
+            let indentLevel = 0;
+            const indent = '\t';
+            const formattedLines = [];
+
+            for (let line of lines) {
+                let trimmed = line.trim();
+
+                // Disminuir indentación si la línea es solo "}"
+                if (trimmed === '}') indentLevel--;
+
+                // Aplicar indentación
+                if (trimmed.length > 0) {
+                    formattedLines.push(indent.repeat(indentLevel) + trimmed);
+                } else {
+                    formattedLines.push('');
+                }
+
+                // Aumentar indentación si la línea termina con "{"
+                if (trimmed.endsWith('{')) indentLevel++;
+            }
+
+            const formattedText = formattedLines.join('\n');
+
+            // Crear un rango que cubra todo el documento
+            const fullRange = new vscode.Range(
+                document.positionAt(0),
+                document.positionAt(text.length)
+            );
+
+            edits.push(vscode.TextEdit.replace(fullRange, formattedText));
+            return edits;
+        }
+    });
+
+    // Registrar el formateador
+    context.subscriptions.push(formattingProvider);
 
     context.subscriptions.push(linkProvider);
 }

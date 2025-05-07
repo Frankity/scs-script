@@ -46,9 +46,15 @@
             }
         ],
         "configurationDefaults": {
-            "[go]": {
-                "editor.insertSpaces": false
+            "[sii]": {
+                "editor.formatOnSave": true
             }
-        }
+        },
+        "commands": [
+            {
+                "command": "extension.formatSiiDocument",
+                "title": "Format SII Document"
+            }
+        ]
     }
 }
