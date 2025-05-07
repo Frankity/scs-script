@@ -27,3 +27,13 @@
 
 ### Removed
 - Path HighHightligthing from non path strings
+
+## [0.0.6] - 2025-05-07
+
+### Added
+- Added rich hover: shows icon previews and model paths if the referenced files exist.
+- Advanced validation: checks for correct types (number, enum, string, tuple, tupleOrNumber) and allowed values for properties.
+- Warns if referenced files in paths or @include directives do not exist in the workspace.
+- Improved formatter: auto-indents blocks and @include directives.
+- Added reserved word autocompletion.
+- Separated validation rules and reserved words into independent files.
